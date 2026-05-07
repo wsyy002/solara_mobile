@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
-import '../config/api_config.dart';
 import '../models/song.dart';
 import '../services/api_service.dart';
 
-/// 歌曲列表项组件
-class SongTile extends StatelessWidget {
+/// 歌曲列表项组件（含异步封面加载）
+class SongTile extends StatefulWidget {
   final Song song;
   final bool isFavorite;
   final VoidCallback? onTap;
@@ -23,61 +21,88 @@ class SongTile extends StatelessWidget {
   });
 
   @override
+  State<SongTile> createState() => _SongTileState();
+}
+
+class _SongTileState extends State<SongTile> {
+  String? _artUrl;
+  bool _loadingArt = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadArt();
+  }
+
+  Future<void> _loadArt() async {
+    final url = await ApiService().fetchAlbumArtUrl(widget.song);
+    if (mounted) {
+      setState(() {
+        _artUrl = url.isNotEmpty ? url : null;
+        _loadingArt = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final api = ApiService();
-    final artUrl = api.getAlbumArtUrl(song);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListTile(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: CachedNetworkImage(
-          imageUrl: artUrl,
+        child: Container(
           width: 48,
           height: 48,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Icon(
-              Icons.music_note,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          errorWidget: (_, __, ___) => Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Icon(
-              Icons.music_note,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+          color: colorScheme.surfaceContainerHighest,
+          child: _loadingArt
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : (_artUrl != null
+                  ? Image.network(
+                      _artUrl!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.music_note,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      loadingBuilder: (_, child, progress) =>
+                          progress == null ? child : const Icon(Icons.music_note),
+                    )
+                  : Icon(
+                      Icons.music_note,
+                      color: colorScheme.onSurfaceVariant,
+                    )),
         ),
       ),
       title: Text(
-        song.name,
+        widget.song.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
       ),
       subtitle: Text(
-        song.artist,
+        widget.song.artist,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 13,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          color: colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: trailing ??
-          (onFavoriteTap != null
+      trailing: widget.trailing ??
+          (widget.onFavoriteTap != null
               ? IconButton(
                   icon: Icon(
-                    isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: isFavorite ? Colors.redAccent : null,
+                    widget.isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: widget.isFavorite ? Colors.redAccent : null,
                     size: 20,
                   ),
-                  onPressed: onFavoriteTap,
+                  onPressed: widget.onFavoriteTap,
                 )
               : null),
-      onTap: onTap,
+      onTap: widget.onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }

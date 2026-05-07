@@ -118,7 +118,10 @@ class ApiService {
     }
   }
 
-  /// 获取专辑封面 URL
+  /// 封面 URL 缓存
+  static final Map<String, String> _artCache = {};
+
+  /// 获取专辑封面 API 地址（返回 JSON）
   String getAlbumArtUrl(Song song, {int size = 300}) {
     final params = {
       'types': 'pic',
@@ -128,6 +131,23 @@ class ApiService {
       's': _generateSignature(),
     };
     return ApiConfig.proxyUrl(params);
+  }
+
+  /// 获取真实的专辑封面图片地址（解析 JSON 后取真实 URL）
+  Future<String> fetchAlbumArtUrl(Song song, {int size = 300}) async {
+    final key = '${song.id}_${song.source}_$size';
+    if (_artCache.containsKey(key)) return _artCache[key]!;
+
+    try {
+      final apiUrl = getAlbumArtUrl(song, size: size);
+      final response = await _dio.get(apiUrl);
+      if (response.data is Map && (response.data as Map).containsKey('url')) {
+        final realUrl = (response.data as Map)['url'] as String;
+        _artCache[key] = realUrl;
+        return realUrl;
+      }
+    } catch (_) {}
+    return '';
   }
 
   /// 错误处理

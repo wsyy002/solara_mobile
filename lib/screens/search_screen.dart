@@ -240,9 +240,34 @@ class _SearchScreenState extends State<SearchScreen> {
           song: song,
           isFavorite: provider.isFavorite(song.id),
           onTap: () {
-            provider.playFromList(provider.searchResults, startIndex: index);
+            provider.playFromSearch(provider.searchResults, startIndex: index);
           },
           onFavoriteTap: () => provider.toggleFavorite(song),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.play_circle_fill, size: 22),
+                color: Theme.of(context).colorScheme.primary,
+                onPressed: () {
+                  provider.playFromSearch(provider.searchResults, startIndex: index);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.playlist_add, size: 20),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                onPressed: () {
+                  provider.addToPlaylist([song]);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('已添加到播放列表'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
     );
