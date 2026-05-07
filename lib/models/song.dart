@@ -25,7 +25,7 @@ class Song {
     return Song(
       id: (json['id'] ?? '').toString(),
       name: json['name'] ?? '未知歌曲',
-      artist: json['artist'] ?? '未知艺术家',
+      artist: json['artist'] is List ? (json['artist'] as List).join(' / ') : (json['artist'] ?? '未知艺术家'),
       album: json['album'] ?? '',
       picId: json['pic_id']?.toString(),
       urlId: json['url_id']?.toString(),
