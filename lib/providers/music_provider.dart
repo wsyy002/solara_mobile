@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audio_service/audio_service.dart';
 
 import '../config/api_config.dart';
+import '../services/audio_handler.dart';
 import '../models/song.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
@@ -297,7 +298,7 @@ class MusicProvider extends ChangeNotifier {
   // ======== 通知 AudioService ========
   void _notifyAudioServicePlay() {
     if (_audioHandler is SolaraAudioHandler) {
-      (_audioHandler as dynamic).loadQueue(_playlist, startIndex: _currentIndex);
+      (_audioHandler as SolaraAudioHandler).loadQueue(_playlist, startIndex: _currentIndex);
     }
   }
 }
