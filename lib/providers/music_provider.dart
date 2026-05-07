@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:audio_service/audio_service.dart';
+
 import '../config/api_config.dart';
 import '../models/song.dart';
 import '../services/api_service.dart';
@@ -139,11 +141,11 @@ class MusicProvider extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
 
-    // 通知 AudioService 播放
-    _notifyAudioServicePlay();
-
     notifyListeners();
     _fetchLyric();
+
+    // 通知 AudioHandler 播放
+    _notifyAudioServicePlay();
   }
 
   /// 从搜索结果播放：只把点击的这首歌追加到列表末尾
@@ -281,10 +283,21 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ======== AudioHandler ========
+  BaseAudioHandler? _audioHandler;
+
+  /// 设置 AudioHandler（由 main.dart 注入）
+  void setAudioHandler(BaseAudioHandler handler) {
+    _audioHandler = handler;
+  }
+
+  /// 获取 AudioHandler
+  BaseAudioHandler? get audioHandler => _audioHandler;
+
   // ======== 通知 AudioService ========
-  /// 通知后台音频服务播放（实际通过 Flutter 引擎通道）
   void _notifyAudioServicePlay() {
-    // 此方法由外部 AudioHandler 监听 MusicProvider 的变化后响应
-    // 不在 Provider 内直接创建 AudioService 依赖，保持纯净
+    if (_audioHandler is SolaraAudioHandler) {
+      (_audioHandler as dynamic).loadQueue(_playlist, startIndex: _currentIndex);
+    }
   }
 }

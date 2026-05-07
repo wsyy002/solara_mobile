@@ -50,6 +50,11 @@ void main() async {
   final musicProvider = MusicProvider();
   await musicProvider.init();
 
+  // 如果 AudioHandler 可用，注入到 MusicProvider
+  if (audioHandler != null) {
+    musicProvider.setAudioHandler(audioHandler as BaseAudioHandler);
+  }
+
   runApp(
     MultiProvider(
       providers: [
