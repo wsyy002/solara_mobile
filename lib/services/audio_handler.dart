@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -77,6 +78,10 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 加载并播放列表
   Future<void> loadQueue(List<Song> songs, {int startIndex = 0}) async {
+    if (!_playerReady) {
+      debugPrint('AudioPlayer not available, skipping playback');
+      return;
+    }
     _songs = List.from(songs);
     queue.add(songs.map(_toMediaItem).toList());
     await _playAt(startIndex.clamp(0, songs.length - 1));
