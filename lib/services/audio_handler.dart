@@ -14,33 +14,38 @@ import '../models/song.dart';
 /// - 锁屏控制（播放/暂停/切歌/专辑封面）
 /// - 通知栏控制
 class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer? _player;
+  bool _playerReady = false;
   final HttpClient _httpClient = HttpClient();
 
   List<Song> _songs = [];
   int _currentQuality = ApiConfig.defaultQuality;
 
   SolaraAudioHandler() {
-    _setupListeners();
+    try {
+      _player = AudioPlayer();
+      _setupListeners();
+      _playerReady = true;
+    } catch (_) {}
   }
 
   void _setupListeners() {
     // 位置更新
-    _player.positionStream.listen((pos) {
+    _player?.positionStream.listen((pos) {
       playbackState.add(playbackState.value.copyWith(
         updatePosition: pos,
       ));
     });
 
     // 时长更新
-    _player.durationStream.listen((dur) {
+    _player?.durationStream.listen((dur) {
       if (dur != null && mediaItem.value != null) {
         mediaItem.add(mediaItem.value!.copyWith(duration: dur));
       }
     });
 
     // 播放状态
-    _player.playerStateStream.listen((state) {
+    _player?.playerStateStream.listen((state) {
       // 播放完成自动下一首
       if (state.processingState == AudioProcessingState.completed) {
         _next();
@@ -58,7 +63,7 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
     });
 
     // 序列状态更新
-    _player.sequenceStateStream.listen((seq) {
+    _player?.sequenceStateStream.listen((seq) {
       if (seq?.currentSource != null) {
         final idx = seq!.currentIndex;
         if (idx != null && idx < _songs.length) {
@@ -81,29 +86,29 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   set quality(int q) => _currentQuality = q;
 
   /// 当前播放索引
-  int get currentIndex => _player.currentIndex ?? 0;
+  int get currentIndex => _player?.currentIndex ?? 0;
 
   /// 当前歌曲
   Song? get currentSong =>
-      _player.currentIndex != null && _player.currentIndex! < _songs.length
-          ? _songs[_player.currentIndex!]
+      _player?.currentIndex != null && _player?.currentIndex! < _songs.length
+          ? _songs[_player?.currentIndex!]
           : null;
 
   /// 对外暴露 player 流（供 UI 绑定）
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<Duration?> get durationStream => _player.durationStream;
+  Stream<PlayerState> get playerStateStream => _player?.playerStateStream;
+  Stream<Duration> get positionStream => _player?.positionStream;
+  Stream<Duration?> get durationStream => _player?.durationStream;
 
   // ===== AudioService 接口实现 =====
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() => _player?.play();
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() => _player?.pause();
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) => _player?.seek(position);
 
   @override
   Future<void> skipToNext() => _next();
@@ -113,14 +118,14 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> stop() async {
-    await _player.stop();
-    await _player.dispose();
+    await _player?.stop();
+    await _player?.dispose();
     _httpClient.close(force: true);
   }
 
   @override
   Future<void> setRepeatMode(AudioServiceRepeatMode mode) async {
-    _player.setLoopMode(_toLoopMode(mode));
+    _player?.setLoopMode(_toLoopMode(mode));
     super.setRepeatMode(mode);
   }
 
@@ -150,12 +155,12 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
         return;
       }
 
-      await _player.setAudioSource(
+      await _player?.setAudioSource(
         AudioSource.uri(Uri.parse(audioUrl)),
         preload: true,
       );
-      await _player.seek(Duration.zero);
-      await _player.play();
+      await _player?.seek(Duration.zero);
+      await _player?.play();
     } catch (_) {
       // 播放失败，跳过
       await _next();
@@ -163,21 +168,21 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> _next() async {
-    final next = (_player.currentIndex ?? 0) + 1;
+    final next = (_player?.currentIndex ?? 0) + 1;
     if (next < _songs.length) {
       await _playAt(next);
     } else {
-      await _player.pause();
-      await _player.seek(Duration.zero);
+      await _player?.pause();
+      await _player?.seek(Duration.zero);
     }
   }
 
   Future<void> _prev() async {
-    final prev = (_player.currentIndex ?? 1) - 1;
+    final prev = (_player?.currentIndex ?? 1) - 1;
     if (prev >= 0) {
       await _playAt(prev);
     } else {
-      await _player.seek(Duration.zero);
+      await _player?.seek(Duration.zero);
     }
   }
 
