@@ -146,16 +146,17 @@ class MusicProvider extends ChangeNotifier {
     _fetchLyric();
   }
 
-  /// 从搜索结果播放：如果已有列表则追加，否则新建
+  /// 从搜索结果播放：只把点击的这首歌追加到列表末尾
   void playFromSearch(List<Song> songs, {int startIndex = 0}) {
     if (songs.isEmpty) return;
+    final song = songs[startIndex];
     if (_playlist.isEmpty) {
-      _playlist = List.from(songs);
+      _playlist = [song];
     } else {
-      // 追加到现有列表末尾
-      _playlist.addAll(songs);
+      // 只追加点击的这一首
+      _playlist.add(song);
     }
-    _currentIndex = startIndex + (_playlist.length - songs.length);
+    _currentIndex = _playlist.length - 1;
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
     _notifyAudioServicePlay();

@@ -18,11 +18,15 @@ void main() async {
     statusBarIconBrightness: Brightness.dark,
   ));
 
-  // 加载保存的后端地址
-  await ApiConfig.loadSavedUrl();
+  // 加载保存的后端地址（带超时）
+  try {
+    await ApiConfig.loadSavedUrl().timeout(const Duration(seconds: 3));
+  } catch (_) {}
 
-  // 初始化存储
-  await StorageService().init();
+  // 初始化存储（带超时）
+  try {
+    await StorageService().init().timeout(const Duration(seconds: 3));
+  } catch (_) {}
 
   // 启动 AudioService（后台播放）— 带超时兜底
   dynamic audioHandler;
@@ -50,7 +54,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: musicProvider),
-        Provider.value(value: audioHandler),
+        if (audioHandler != null)
+          Provider.value(value: audioHandler),
       ],
       child: const SolaraApp(),
     ),
