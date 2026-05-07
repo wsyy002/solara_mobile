@@ -147,7 +147,7 @@ class MusicProvider extends ChangeNotifier {
   }
 
   /// 从搜索结果播放：如果已有列表则追加，否则新建
-  void playFromSearch(List<Song> songs, int startIndex) {
+  void playFromSearch(List<Song> songs, {int startIndex = 0}) {
     if (songs.isEmpty) return;
     if (_playlist.isEmpty) {
       _playlist = List.from(songs);
