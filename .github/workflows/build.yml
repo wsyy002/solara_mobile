@@ -1,0 +1,40 @@
+name: Build Solara APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # 也可以手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🔧 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      - name: 🔨 Build Release APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: 📤 Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: solara-apk
+          path: build/app/outputs/flutter-apk/*.apk
+          compression-level: 0
