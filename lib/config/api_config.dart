@@ -1,7 +1,15 @@
-/// Solara 后端 API 配置
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Solara 后端 API 配置（支持动态修改）
 class ApiConfig {
-  /// NAS 上 Solara 服务的地址（内网）
-  static const String baseUrl = 'http://192.168.101.28:3001';
+  /// 默认地址
+  static const String defaultBaseUrl = 'http://192.168.101.28:3001';
+
+  /// 当前后端地址
+  static String _baseUrl = defaultBaseUrl;
+
+  /// 获取后端地址
+  static String get baseUrl => _baseUrl;
 
   /// 代理 API 基础路径
   static const String proxyPath = '/proxy';
@@ -18,7 +26,7 @@ class ApiConfig {
   /// 默认音乐源
   static const String defaultSource = 'netease';
 
-  /// 音质选项 (key: 码率, value: 显示名)
+  /// 音质选项
   static const Map<int, String> qualityOptions = {
     128: '标准音质 (128k)',
     192: '高音质 (192k)',
@@ -34,6 +42,27 @@ class ApiConfig {
 
   /// 超时时间
   static const Duration requestTimeout = Duration(seconds: 15);
+
+  /// 从 SharedPreferences 加载保存的地址
+  static Future<void> loadSavedUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('backend_url');
+    if (saved != null && saved.isNotEmpty) {
+      _baseUrl = saved;
+    }
+  }
+
+  /// 修改后端地址并保存
+  static Future<void> setBaseUrl(String url) async {
+    // 去掉末尾斜杠
+    String clean = url.trim();
+    while (clean.endsWith('/')) {
+      clean = clean.substring(0, clean.length - 1);
+    }
+    _baseUrl = clean;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('backend_url', clean);
+  }
 
   /// 完整代理 URL
   static String proxyUrl(Map<String, String> params) {

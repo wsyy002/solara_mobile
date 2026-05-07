@@ -18,6 +18,9 @@ void main() async {
     statusBarIconBrightness: Brightness.dark,
   ));
 
+  // 加载保存的后端地址
+  await ApiConfig.loadSavedUrl();
+
   // 初始化存储
   await StorageService().init();
 

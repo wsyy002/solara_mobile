@@ -3,6 +3,69 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../config/api_config.dart';
+
+class _SettingsDialog extends StatefulWidget {
+  final String currentUrl;
+  const _SettingsDialog({required this.currentUrl});
+  @override
+  State<_SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends State<_SettingsDialog> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.currentUrl);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('后端地址'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('输入 Solara 服务的完整地址（含端口）',
+              style: TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: '后端地址',
+              hintText: 'http://192.168.101.28:3001',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            style: const TextStyle(fontSize: 14),
+            keyboardType: TextInputType.url,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () async {
+            await ApiConfig.setBaseUrl(_controller.text);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
 import '../providers/music_provider.dart';
 import '../services/api_service.dart';
 import 'search_screen.dart';
@@ -55,6 +118,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => _showSettingsDialog(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
               Navigator.push(
@@ -93,9 +160,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  void _showSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => _SettingsDialog(currentUrl: ApiConfig.baseUrl),
+    );
+  }
 }
 
-/// 正在播放页
 class _NowPlayingPage extends StatelessWidget {
   const _NowPlayingPage();
 
