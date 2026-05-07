@@ -3,6 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../config/api_config.dart';
+import '../providers/music_provider.dart';
+import '../services/api_service.dart';
+import 'search_screen.dart';
+import 'player_screen.dart';
+import 'playlist_screen.dart';
 
 class _SettingsDialog extends StatefulWidget {
   final String currentUrl;
@@ -66,11 +71,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     );
   }
 }
-import '../providers/music_provider.dart';
-import '../services/api_service.dart';
-import 'search_screen.dart';
-import 'player_screen.dart';
-import 'playlist_screen.dart';
 
 /// 主页（底部导航结构）
 class HomeScreen extends StatefulWidget {
