@@ -238,7 +238,7 @@ class _PlayerControls extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.hq, size: 16),
+                      const Icon(Icons.settings, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${provider.quality}',
