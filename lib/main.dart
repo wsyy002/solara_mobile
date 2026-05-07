@@ -21,17 +21,23 @@ void main() async {
   // 初始化存储
   await StorageService().init();
 
-  // 启动 AudioService（后台播放）
-  final audioHandler = await AudioService.init(
-    builder: () => SolaraAudioHandler(),
-    config: AudioServiceConfig(
-      androidNotificationChannelId: 'com.solara.music.channel',
-      androidNotificationChannelName: 'Solara 音乐',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: false,
-      androidNotificationIcon: 'mipmap/ic_launcher',
-    ),
-  );
+  // 启动 AudioService（后台播放）— 带超时兜底
+  dynamic audioHandler;
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => SolaraAudioHandler(),
+      config: AudioServiceConfig(
+        androidNotificationChannelId: 'com.solara.music.channel',
+        androidNotificationChannelName: 'Solara 音乐',
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: false,
+        androidNotificationIcon: 'mipmap/ic_launcher',
+      ),
+    ).timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('AudioService init failed: $e, continuing without background audio');
+    audioHandler = null;
+  }
 
   // 初始化 MusicProvider
   final musicProvider = MusicProvider();

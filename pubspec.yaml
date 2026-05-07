@@ -18,8 +18,8 @@ dependencies:
   provider: ^6.1.1
 
   # 音频播放
-  just_audio: ^0.9.36
-  audio_service: ^0.18.12
+  just_audio: ^0.9.46
+  audio_service: ^0.18.18
   rxdart: ^0.27.7
 
   # 本地存储
