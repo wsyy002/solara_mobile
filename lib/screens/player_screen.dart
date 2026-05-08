@@ -23,8 +23,7 @@ class PlayerScreen extends StatelessWidget {
           );
         }
 
-        final api = ApiService();
-        final artUrl = api.getAlbumArtUrl(song);
+        final artUrl = provider.albumArtUrl;
         final isFavorite = provider.isFavorite(song.id);
 
         // 简易分页：封面页 / 歌词页
@@ -99,11 +98,11 @@ class PlayerScreen extends StatelessWidget {
 
 /// 专辑封面页
 class _AlbumArtPage extends StatelessWidget {
-  final String artUrl;
+  final String? artUrl;
   final String songName;
 
   const _AlbumArtPage({
-    required this.artUrl,
+    this.artUrl,
     required this.songName,
   });
 
@@ -114,23 +113,30 @@ class _AlbumArtPage extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Hero(
-            tag: 'album-art-${artUrl.hashCode}',
+            tag: 'album-art-${(artUrl ?? songName).hashCode}',
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: CachedNetworkImage(
-                imageUrl: artUrl,
-                width: MediaQuery.of(context).size.width * 0.65,
-                height: MediaQuery.of(context).size.width * 0.65,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.music_note, size: 80),
-                ),
-                errorWidget: (_, __, ___) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.music_note, size: 80),
-                ),
-              ),
+              child: artUrl != null && artUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: artUrl!,
+                      width: MediaQuery.of(context).size.width * 0.65,
+                      height: MediaQuery.of(context).size.width * 0.65,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.music_note, size: 80),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.music_note, size: 80),
+                      ),
+                    )
+                  : Container(
+                      width: MediaQuery.of(context).size.width * 0.65,
+                      height: MediaQuery.of(context).size.width * 0.65,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.music_note, size: 80),
+                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -181,7 +187,7 @@ class _PlayerControls extends StatelessWidget {
                   : 0,
               onChanged: (v) {
                 if (provider.duration != null) {
-                  provider.setPosition(
+                  provider.seekTo(
                     Duration(milliseconds: (v * provider.duration!.inMilliseconds).round()),
                   );
                 }
@@ -278,12 +284,18 @@ class _PlayerControls extends StatelessWidget {
                 onPressed: provider.onPlaybackComplete,
               ),
 
-              // 播放模式（占位）
+              // 循环模式
               IconButton(
-                icon: const Icon(Icons.repeat, size: 20),
-                onPressed: () {
-                  // TODO: 切换播放模式
-                },
+                icon: Icon(
+                  provider.loopMode == RepeatMode.one
+                      ? Icons.repeat_one
+                      : Icons.repeat,
+                  size: 20,
+                  color: provider.loopMode != RepeatMode.none
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                onPressed: provider.toggleRepeatMode,
               ),
             ],
           ),

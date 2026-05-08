@@ -193,8 +193,7 @@ class _NowPlayingPage extends StatelessWidget {
           );
         }
 
-        final api = ApiService();
-        final artUrl = api.getAlbumArtUrl(song);
+        final artUrl = provider.albumArtUrl;
 
         return GestureDetector(
           onTap: () {
@@ -212,20 +211,27 @@ class _NowPlayingPage extends StatelessWidget {
                   tag: 'album-art-${song.id}',
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: CachedNetworkImage(
-                      imageUrl: artUrl,
-                      width: MediaQuery.of(context).size.width * 0.7,
-                      height: MediaQuery.of(context).size.width * 0.7,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.music_note, size: 80),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.music_note, size: 80),
-                      ),
-                    ),
+                    child: artUrl != null && artUrl!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: artUrl!,
+                            width: MediaQuery.of(context).size.width * 0.7,
+                            height: MediaQuery.of(context).size.width * 0.7,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note, size: 80),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note, size: 80),
+                            ),
+                          )
+                        : Container(
+                            width: MediaQuery.of(context).size.width * 0.7,
+                            height: MediaQuery.of(context).size.width * 0.7,
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.music_note, size: 80),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 32),

@@ -12,6 +12,9 @@ import '../models/song.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
+/// 循环模式
+enum RepeatMode { none, one, all }
+
 /// 音乐播放器核心状态
 class MusicProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -36,6 +39,9 @@ class MusicProvider extends ChangeNotifier {
     super.dispose();
   }
 
+  DateTime _lastPositionNotify = DateTime.now();
+  static const Duration _positionThrottle = Duration(milliseconds: 300);
+
   void _setupPlayerListeners() {
     // 播放状态 & 自动下一首
     _playerStateSub = _player.playerStateStream.listen((state) {
@@ -43,32 +49,52 @@ class MusicProvider extends ChangeNotifier {
 
       // 播放完成自动下一首
       if (state.processingState == AudioProcessingState.completed) {
-        if (_currentIndex < _playlist.length - 1) {
+        if (_loopMode == RepeatMode.one) {
+          // 单曲循环：重新播放同一首
+          _playCurrentSong().catchError((_) {});
+        } else if (_currentIndex < _playlist.length - 1) {
           _currentIndex++;
           _currentSong = _playlist[_currentIndex];
           _playCurrentSong().catchError((_) {});
           _fetchLyric();
+          _fetchAlbumArt();
           _notifyAudioServicePlay();
         } else {
-          _currentIndex = -1;
-          _currentSong = null;
-          _isPlaying = false;
-          _position = Duration.zero;
-          _duration = null;
+          // 列表循环：回到第一首
+          if (_loopMode == RepeatMode.all && _playlist.isNotEmpty) {
+            _currentIndex = 0;
+            _currentSong = _playlist[_currentIndex];
+            _playCurrentSong().catchError((_) {});
+            _fetchLyric();
+            _fetchAlbumArt();
+            _notifyAudioServicePlay();
+          } else {
+            _currentIndex = -1;
+            _currentSong = null;
+            _isPlaying = false;
+            _position = Duration.zero;
+            _duration = null;
+          }
         }
       }
 
       notifyListeners();
     });
 
-    // 播放进度
+    // 播放进度（限频通知，避免 UI 过度刷新）
     _positionSub = _player.positionStream.listen((pos) {
       _position = pos;
+      final now = DateTime.now();
+      if (now.difference(_lastPositionNotify) >= _positionThrottle) {
+        _lastPositionNotify = now;
+        notifyListeners();
+      }
     });
 
     // 歌曲时长
     _durationSub = _player.durationStream.listen((dur) {
       _duration = dur;
+      notifyListeners();
     });
   }
 
@@ -98,6 +124,8 @@ class MusicProvider extends ChangeNotifier {
   Duration? _duration;
   int _quality = ApiConfig.defaultQuality;
   String? _lyricText;
+  String? _albumArtUrl;
+  RepeatMode _loopMode = RepeatMode.none;
 
   List<Song> get playlist => _playlist;
   int get currentIndex => _currentIndex;
@@ -107,6 +135,8 @@ class MusicProvider extends ChangeNotifier {
   Duration? get duration => _duration;
   int get quality => _quality;
   String? get lyricText => _lyricText;
+  String? get albumArtUrl => _albumArtUrl;
+  RepeatMode get loopMode => _loopMode;
 
   // ======== 收藏 ========
   List<Song> _favorites = [];
@@ -200,6 +230,7 @@ class MusicProvider extends ChangeNotifier {
     _isPlaying = true;
 
     _playCurrentSong().catchError((_) {});
+    _fetchAlbumArt();
     _notifyAudioServicePlay();
     notifyListeners();
     _fetchLyric();
@@ -220,6 +251,7 @@ class MusicProvider extends ChangeNotifier {
     _isPlaying = true;
 
     _playCurrentSong().catchError((_) {});
+    _fetchAlbumArt();
     _notifyAudioServicePlay();
     notifyListeners();
     _fetchLyric();
@@ -230,6 +262,16 @@ class MusicProvider extends ChangeNotifier {
   Future<void> _playCurrentSong() async {
     if (_currentSong == null) return;
     try {
+      // 设置循环模式
+      switch (_loopMode) {
+        case RepeatMode.one:
+          _player.setLoopMode(LoopMode.one);
+        case RepeatMode.all:
+          _player.setLoopMode(LoopMode.all);
+        case RepeatMode.none:
+          _player.setLoopMode(LoopMode.off);
+      }
+
       final url = await _api.getSongUrl(
         song: _currentSong!,
         quality: _quality,
@@ -244,6 +286,39 @@ class MusicProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('_playCurrentSong failed: $e');
     }
+  }
+
+  /// 获取当前歌曲专辑封面 URL
+  Future<void> _fetchAlbumArt() async {
+    if (_currentSong == null) return;
+    try {
+      _albumArtUrl = await _api.fetchAlbumArtUrl(_currentSong!);
+    } catch (_) {
+      _albumArtUrl = null;
+    }
+    notifyListeners();
+  }
+
+  /// 切换循环模式：无 → 单曲 → 全部
+  void toggleRepeatMode() {
+    switch (_loopMode) {
+      case RepeatMode.none:
+        _loopMode = RepeatMode.one;
+      case RepeatMode.one:
+        _loopMode = RepeatMode.all;
+      case RepeatMode.all:
+        _loopMode = RepeatMode.none;
+    }
+    // 立即应用到播放器
+    switch (_loopMode) {
+      case RepeatMode.one:
+        _player.setLoopMode(LoopMode.one);
+      case RepeatMode.all:
+        _player.setLoopMode(LoopMode.all);
+      case RepeatMode.none:
+        _player.setLoopMode(LoopMode.off);
+    }
+    notifyListeners();
   }
 
   /// 将单首歌追加到播放列表末尾
@@ -280,21 +355,25 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 当前播放完成 → 下一首
+  /// 下一首（手动点击或播放完成）
   void onPlaybackComplete() {
     if (_currentIndex < _playlist.length - 1) {
       _currentIndex++;
-      _currentSong = _playlist[_currentIndex];
-      _isPlaying = true;
-      _playCurrentSong().catchError((_) {});
-      _notifyAudioServicePlay();
-      notifyListeners();
-      _fetchLyric();
+    } else if (_loopMode == RepeatMode.all && _playlist.isNotEmpty) {
+      _currentIndex = 0;
     } else {
       _isPlaying = false;
       _position = Duration.zero;
       notifyListeners();
+      return;
     }
+    _currentSong = _playlist[_currentIndex];
+    _isPlaying = true;
+    _playCurrentSong().catchError((_) {});
+    _fetchAlbumArt();
+    _notifyAudioServicePlay();
+    notifyListeners();
+    _fetchLyric();
   }
 
   /// 上一首
@@ -305,6 +384,7 @@ class MusicProvider extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
     _playCurrentSong().catchError((_) {});
+    _fetchAlbumArt();
     _notifyAudioServicePlay();
     notifyListeners();
     _fetchLyric();
@@ -319,12 +399,11 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
-  void setPosition(Duration pos) {
+  /// 拖动进度条到指定位置
+  void seekTo(Duration pos) {
+    _player.seek(pos);
     _position = pos;
-  }
-
-  void setDuration(Duration? dur) {
-    _duration = dur;
+    notifyListeners();
   }
 
   void setPlaying(bool playing) {
