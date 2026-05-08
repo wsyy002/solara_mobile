@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -24,6 +26,7 @@ class PlayerScreen extends StatelessWidget {
         }
 
         final artUrl = provider.albumArtUrl;
+        final artBytes = provider.albumArtBytes;
         final isFavorite = provider.isFavorite(song.id);
 
         // 简易分页：封面页 / 歌词页
@@ -74,7 +77,7 @@ class PlayerScreen extends StatelessWidget {
                   child: TabBarView(
                     children: [
                       // 封面页
-                      _AlbumArtPage(artUrl: artUrl, songName: song.name),
+                      _AlbumArtPage(artBytes: artBytes, artUrl: artUrl, songName: song.name),
                       // 歌词页
                       LyricsDisplay(
                         lyricText: provider.lyricText,
@@ -98,46 +101,72 @@ class PlayerScreen extends StatelessWidget {
 
 /// 专辑封面页
 class _AlbumArtPage extends StatelessWidget {
+  final Uint8List? artBytes;
   final String? artUrl;
   final String songName;
 
   const _AlbumArtPage({
+    this.artBytes,
     this.artUrl,
     required this.songName,
   });
 
+  Widget _buildArt(BuildContext context, double size) {
+    // 1) 优先用内存中的图片字节
+    if (artBytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.memory(
+          artBytes!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Icon(Icons.music_note, size: 80),
+          ),
+        ),
+      );
+    }
+    // 2) 用 URL
+    if (artUrl != null && artUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: CachedNetworkImage(
+          imageUrl: artUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Icon(Icons.music_note, size: 80),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Icon(Icons.music_note, size: 80),
+          ),
+        ),
+      );
+    }
+    // 3) 都没有 → 占位符
+    return Container(
+      width: size,
+      height: size,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: const Icon(Icons.music_note, size: 80),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size.width * 0.65;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Hero(
             tag: 'album-art-${(artUrl ?? songName).hashCode}',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: artUrl != null && artUrl!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: artUrl!,
-                      width: MediaQuery.of(context).size.width * 0.65,
-                      height: MediaQuery.of(context).size.width * 0.65,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.music_note, size: 80),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.music_note, size: 80),
-                      ),
-                    )
-                  : Container(
-                      width: MediaQuery.of(context).size.width * 0.65,
-                      height: MediaQuery.of(context).size.width * 0.65,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.music_note, size: 80),
-                    ),
-            ),
+            child: _buildArt(context, size),
           ),
           const SizedBox(height: 24),
           Text(
