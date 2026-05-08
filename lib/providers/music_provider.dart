@@ -289,7 +289,7 @@ class MusicProvider extends ChangeNotifier {
       await _player.seek(Duration.zero);
       await _player.play();
     } catch (e) {
-      debugPrint('_playCurrentSong failed: $e');
+      print('_playCurrentSong failed: $e');
     }
   }
 
