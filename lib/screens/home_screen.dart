@@ -212,25 +212,19 @@ class _NowPlayingPage extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: artUrl != null && artUrl!.isNotEmpty
-                        ? Image.network(
-                            artUrl!,
+                        ? CachedNetworkImage(
+                            imageUrl: artUrl!,
                             width: MediaQuery.of(context).size.width * 0.7,
                             height: MediaQuery.of(context).size.width * 0.7,
                             fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              print('[AlbumArt] Image.network error: $error');
-                              return Container(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                child: const Icon(Icons.music_note, size: 80),
-                              );
-                            },
+                            placeholder: (_, __) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note, size: 80),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note, size: 80),
+                            ),
                           )
                         : Container(
                             width: MediaQuery.of(context).size.width * 0.7,
