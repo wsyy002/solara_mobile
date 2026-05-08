@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import 'search_screen.dart';
 import 'player_screen.dart';
 import 'playlist_screen.dart';
+import 'local_music_page.dart';
 
 class _SettingsDialog extends StatefulWidget {
   final String currentUrl;
@@ -85,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _pages = const [
     _NowPlayingPage(),
+    LocalMusicPage(),
     _PlaylistPage(),
     _FavoritesPage(),
   ];
@@ -155,6 +157,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.play_circle_outline),
             activeIcon: Icon(Icons.play_circle_filled),
             label: '正在播放',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.folder_outlined),
+            activeIcon: Icon(Icons.folder),
+            label: '本地音乐',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.queue_music_outlined),

@@ -49,7 +49,7 @@ class MusicProvider extends ChangeNotifier {
       _isPlaying = state.playing;
 
       // 播放完成自动下一首
-      if (state.processingState == AudioProcessingState.completed) {
+      if (state.processingState == ProcessingState.completed) {
         if (_loopMode == RepeatMode.one) {
           // 单曲循环：重新播放同一首
           _playCurrentSong().catchError((_) {});
@@ -277,13 +277,23 @@ class MusicProvider extends ChangeNotifier {
           _player.setLoopMode(LoopMode.off);
       }
 
-      final url = await _api.getSongUrl(
-        song: _currentSong!,
-        quality: _quality,
-      );
-      if (url.isEmpty) return;
+      // 本地文件直接用文件路径播放
+      final song = _currentSong!;
+      late AudioSource source;
+      if (song.source == 'local' && song.urlId != null) {
+        // 本地文件
+        source = AudioSource.file(song.urlId!);
+      } else {
+        // 网络流 - 从代理获取音频 URL
+        final url = await _api.getSongUrl(
+          song: song,
+          quality: _quality,
+        );
+        if (url.isEmpty) return;
+        source = AudioSource.uri(Uri.parse(url));
+      }
       await _player.setAudioSource(
-        AudioSource.uri(Uri.parse(url)),
+        source,
         preload: true,
       );
       await _player.seek(Duration.zero);
