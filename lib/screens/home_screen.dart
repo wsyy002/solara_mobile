@@ -242,28 +242,7 @@ class _NowPlayingPage extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        }
-      },
-    );
-  }
-                  ),
-                ),
-                // [Debug] 显示封面 URL
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Text(
-                      'URL: ${artUrl ?? "(null)"}',
-                      style: const TextStyle(fontSize: 9, color: Colors.grey),
-                      maxLines: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
                 // 歌曲信息
                 Text(
@@ -343,8 +322,8 @@ class _NowPlayingPage extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        );
+          );
+        }
       },
     );
   }
@@ -355,6 +334,7 @@ class _NowPlayingPage extends StatelessWidget {
     return '$minutes:$seconds';
   }
 }
+
 
 /// 播放列表页（占位）
 class _PlaylistPage extends StatelessWidget {
