@@ -242,13 +242,14 @@ class _NowPlayingPage extends StatelessWidget {
                 ),
                 // [Debug] 显示封面 URL
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '封面URL: ${artUrl ?? "(null)"}',
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                  padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Text(
+                      'URL: ${artUrl ?? "(null)"}',
+                      style: const TextStyle(fontSize: 9, color: Colors.grey),
+                      maxLines: 1,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
