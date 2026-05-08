@@ -149,6 +149,24 @@ class ApiService {
     return url;
   }
 
+  /// 获取真实的专辑封面 CDN URL（从代理 JSON 中提取）
+  /// 用于通知栏/锁屏显示的封面
+  Future<String?> fetchAlbumArtRealUrl(Song song, {int size = 300}) async {
+    try {
+      final proxyUrl = getAlbumArtUrl(song, size: size);
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      final req = await client.getUrl(Uri.parse(proxyUrl));
+      final resp = await req.close();
+      final body = await resp.transform(utf8.decoder).join();
+      client.close();
+      if (body.isEmpty) return null;
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['url'] is String) return decoded['url'] as String;
+    } catch (_) {}
+    return null;
+  }
+
   /// 通过 Dio 下载专辑封面图片字节流
   /// 先通过代理获取真实 URL，再用 Dio 下载图片，绕过 Image.network 的限制
   /// 下载专辑封面图片字节

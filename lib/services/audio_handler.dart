@@ -197,11 +197,23 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   void _updateMediaItem(Song song) {
+    // 异步获取真实封面 URL 并更新
+    _updateArtUrl(song);
     final item = _toMediaItem(song);
     mediaItem.add(item);
   }
 
+  Future<void> _updateArtUrl(Song song) async {
+    try {
+      final realUrl = await ApiService().fetchAlbumArtRealUrl(song);
+      if (realUrl != null && realUrl.isNotEmpty && mediaItem.value != null) {
+        mediaItem.add(mediaItem.value!.copyWith(artUri: Uri.parse(realUrl)));
+      }
+    } catch (_) {}
+  }
+
   MediaItem _toMediaItem(Song song) {
+    // 先用代理 URL 占位，异步更新为真实 CDN URL
     final sig = DateTime.now().millisecondsSinceEpoch.toString();
     final picUrl =
         '${ApiConfig.baseUrl}${ApiConfig.proxyPath}'
@@ -219,6 +231,7 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
       artUri: Uri.parse(picUrl),
       extras: {
         'source': song.source,
+        'pic_id': song.picId ?? song.id,
       },
     );
   }
