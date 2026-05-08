@@ -138,16 +138,42 @@ class ApiService {
     final key = '${song.id}_${song.source}_$size';
     if (_artCache.containsKey(key)) return _artCache[key]!;
 
+    final apiUrl = getAlbumArtUrl(song, size: size);
+
     try {
-      final apiUrl = getAlbumArtUrl(song, size: size);
       final response = await _dio.get(apiUrl);
-      if (response.data is Map && (response.data as Map).containsKey('url')) {
-        final realUrl = (response.data as Map)['url'] as String;
-        _artCache[key] = realUrl;
-        return realUrl;
+      final data = response.data;
+
+      // 格式1: 直接返回 URL 字符串
+      if (data is String && data.isNotEmpty) {
+        _artCache[key] = data;
+        return data;
       }
-    } catch (_) {}
-    return '';
+
+      // 格式2: JSON { "url": "..." }
+      if (data is Map) {
+        if (data['url'] is String && (data['url'] as String).isNotEmpty) {
+          final url = data['url'] as String;
+          _artCache[key] = url;
+          return url;
+        }
+        // 格式3: JSON { "data": { "url": "..." } }
+        if (data['data'] is Map) {
+          final inner = data['data'] as Map;
+          if (inner['url'] is String && (inner['url'] as String).isNotEmpty) {
+            final url = inner['url'] as String;
+            _artCache[key] = url;
+            return url;
+          }
+        }
+      }
+    } catch (_) {
+      // 请求失败，尝试直接用代理 URL 作为图片源
+    }
+
+    // fallback: 直接使用代理 URL（如果服务端能直接返回图片）
+    _artCache[key] = apiUrl;
+    return apiUrl;
   }
 
   /// 错误处理
