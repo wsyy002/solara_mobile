@@ -152,42 +152,18 @@ class ApiService {
   /// 通过 Dio 下载专辑封面图片字节流
   /// 先通过代理获取真实 URL，再用 Dio 下载图片，绕过 Image.network 的限制
   Future<Uint8List?> fetchAlbumArtBytes(Song song, {int size = 300}) async {
-    final proxyUrl = getAlbumArtUrl(song, size: size);
+    // 后端代理直接返回图片数据，直接用字节流
+    final url = getAlbumArtUrl(song, size: size);
+    final uri = Uri.parse(url);
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 10);
+    final req = await client.getUrl(uri);
+    final resp = await req.close();
+    client.close();
 
-    // 1) 从代理获取真实图片 URL
-    final proxyUri = Uri.parse(proxyUrl);
-    final proxyClient = HttpClient();
-    proxyClient.connectionTimeout = const Duration(seconds: 10);
-    final proxyReq = await proxyClient.getUrl(proxyUri);
-    proxyReq.headers.set('Accept', 'application/json');
-    final proxyResp = await proxyReq.close();
-    final body = await proxyResp.transform(utf8.decoder).join();
-    proxyClient.close();
+    if (resp.statusCode != 200) return null;
 
-    if (body.isEmpty) return null;
-
-    // 解析 JSON 获取真实图片 URL
-    String? realUrl;
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map && decoded['url'] is String) {
-        realUrl = decoded['url'] as String;
-      }
-    } catch (_) {
-      if (body.startsWith('http')) realUrl = body;
-    }
-    if (realUrl == null || realUrl.isEmpty) return null;
-
-    // 2) 下载实际图片
-    final imgClient = HttpClient();
-    imgClient.connectionTimeout = const Duration(seconds: 15);
-    final imgReq = await imgClient.getUrl(Uri.parse(realUrl));
-    final imgResp = await imgReq.close();
-    imgClient.close();
-
-    if (imgResp.statusCode != 200) return null;
-
-    final bytes = await imgResp.fold<Uint8List>(
+    final bytes = await resp.fold<Uint8List>(
       Uint8List(0),
       (prev, chunk) {
         final c = chunk as List<int>;
