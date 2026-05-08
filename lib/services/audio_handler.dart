@@ -95,25 +95,25 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 当前歌曲
   Song? get currentSong =>
-      _player?.currentIndex != null && _player?.currentIndex! < _songs.length
-          ? _songs[_player?.currentIndex!]
+      _player?.currentIndex != null && (_player?.currentIndex ?? 0) < _songs.length
+          ? _songs[_player?.currentIndex ?? 0]
           : null;
 
   /// 对外暴露 player 流（供 UI 绑定）
-  Stream<PlayerState> get playerStateStream => _player?.playerStateStream;
-  Stream<Duration> get positionStream => _player?.positionStream;
-  Stream<Duration?> get durationStream => _player?.durationStream;
+  Stream<PlayerState> get playerStateStream => _player?.playerStateStream ?? const Stream.empty();
+  Stream<Duration> get positionStream => _player?.positionStream ?? const Stream.empty();
+  Stream<Duration?> get durationStream => _player?.durationStream ?? const Stream<Duration?>.empty();
 
   // ===== AudioService 接口实现 =====
 
   @override
-  Future<void> play() => _player?.play();
+  Future<void> play() => _player?.play() ?? Future<void>.value();
 
   @override
-  Future<void> pause() => _player?.pause();
+  Future<void> pause() => _player?.pause() ?? Future<void>.value();
 
   @override
-  Future<void> seek(Duration position) => _player?.seek(position);
+  Future<void> seek(Duration position) => _player?.seek(position) ?? Future<void>.value();
 
   @override
   Future<void> skipToNext() => _next();
