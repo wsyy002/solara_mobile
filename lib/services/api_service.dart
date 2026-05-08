@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../models/song.dart';
@@ -136,44 +139,74 @@ class ApiService {
   /// 获取真实的专辑封面图片地址（解析 JSON 后取真实 URL）
   Future<String> fetchAlbumArtUrl(Song song, {int size = 300}) async {
     final key = '${song.id}_${song.source}_$size';
-    if (_artCache.containsKey(key)) return _artCache[key]!;
+    if (_artCache.containsKey(key)) {
+      debugPrint('[ArtCache] hit: $key => ${_artCache[key]}');
+      return _artCache[key]!;
+    }
 
     final apiUrl = getAlbumArtUrl(song, size: size);
+    debugPrint('[ArtFetch] url: $apiUrl');
 
     try {
       final response = await _dio.get(apiUrl);
       final data = response.data;
+      debugPrint('[ArtFetch] response status: ${response.statusCode}, type: ${data.runtimeType}');
 
-      // 格式1: 直接返回 URL 字符串
-      if (data is String && data.isNotEmpty) {
-        _artCache[key] = data;
-        return data;
-      }
-
-      // 格式2: JSON { "url": "..." }
-      if (data is Map) {
-        if (data['url'] is String && (data['url'] as String).isNotEmpty) {
-          final url = data['url'] as String;
-          _artCache[key] = url;
-          return url;
+      if (data is String) {
+        debugPrint('[ArtFetch] string response (len=${data.length}): ${data.length > 80 ? data.substring(0, 80) : data}');
+        if (data.isNotEmpty && data.startsWith('http')) {
+          _artCache[key] = data;
+          return data;
         }
-        // 格式3: JSON { "data": { "url": "..." } }
-        if (data['data'] is Map) {
-          final inner = data['data'] as Map;
-          if (inner['url'] is String && (inner['url'] as String).isNotEmpty) {
-            final url = inner['url'] as String;
+        // 也可能是 JSON 字符串，尝试解析
+        try {
+          final decoded = jsonDecode(data);
+          if (decoded is Map) {
+            final url = _extractUrlFromMap(decoded, apiUrl);
             _artCache[key] = url;
             return url;
           }
-        }
+        } catch (_) {}
       }
-    } catch (_) {
-      // 请求失败，尝试直接用代理 URL 作为图片源
+
+      if (data is Map) {
+        debugPrint('[ArtFetch] map keys: ${data.keys}');
+        final url = _extractUrlFromMap(data, apiUrl);
+        _artCache[key] = url;
+        return url;
+      }
+    } catch (e) {
+      debugPrint('[ArtFetch] request failed: $e');
     }
 
-    // fallback: 直接使用代理 URL（如果服务端能直接返回图片）
+    debugPrint('[ArtFetch] all parsing failed, fallback to proxy URL');
     _artCache[key] = apiUrl;
     return apiUrl;
+  }
+
+  /// 从 Map 中提取图片 URL，尝试多种路径
+  String _extractUrlFromMap(Map data, String fallbackUrl) {
+    // { "url": "..." }
+    if (data['url'] is String && (data['url'] as String).isNotEmpty) {
+      debugPrint('[ArtFetch] found url via data[\'url\']');
+      return data['url'] as String;
+    }
+    // { "data": "http://..." }
+    if (data['data'] is String && (data['data'] as String).startsWith('http')) {
+      debugPrint('[ArtFetch] found url via data[\'data\'] (string)');
+      return data['data'] as String;
+    }
+    // { "data": { "url": "..." } }
+    if (data['data'] is Map) {
+      final inner = data['data'] as Map;
+      if (inner['url'] is String && (inner['url'] as String).isNotEmpty) {
+        debugPrint('[ArtFetch] found url via data[\'data\'][\'url\']');
+        return inner['url'] as String;
+      }
+      debugPrint('[ArtFetch] inner map keys: ${inner.keys}');
+    }
+    debugPrint('[ArtFetch] could not extract url from map, keys: ${data.keys}');
+    return fallbackUrl;
   }
 
   /// 错误处理
