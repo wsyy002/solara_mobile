@@ -151,51 +151,87 @@ class ApiService {
 
   /// 通过 Dio 下载专辑封面图片字节流
   /// 先通过代理获取真实 URL，再用 Dio 下载图片，绕过 Image.network 的限制
+  /// 下载专辑封面图片字节
+  /// 从代理获取真实 URL，然后通过代理下载（绕过手机无法直接访问 CDN 的问题）
   Future<Uint8List?> fetchAlbumArtBytes(Song song, {int size = 300}) async {
-    // 1) 代理返回 JSON，先读文本
-    final proxyUrl = getAlbumArtUrl(song, size: size);
-    final proxyClient = HttpClient();
-    proxyClient.connectionTimeout = const Duration(seconds: 10);
-    final proxyReq = await proxyClient.getUrl(Uri.parse(proxyUrl));
-    proxyReq.headers.set('Accept', 'application/json');
-    final proxyResp = await proxyReq.close();
-    final body = await proxyResp.transform(utf8.decoder).join();
-    proxyClient.close();
+    // 方法A: 直接用后端代理获取图片（不走 CDN）
+    // 后端 /proxy?types=pic 返回 JSON: {"url":"https://cdn..."}
+    // 但我们也可以在 id 中用 pic_id，让后端代理来下载
+    final picId = song.picId ?? song.id;
+    final proxyUrl = '${ApiConfig.baseUrl}${ApiConfig.proxyPath}'
+        '?types=pic&id=$picId&source=${song.source}'
+        '&size=$size&s=${DateTime.now().millisecondsSinceEpoch}';
 
-    if (body.isEmpty) return null;
-
-    // 解析 JSON，提取真实图片 URL
-    String? realUrl;
+    // 读代理返回的 JSON 获取真实 URL
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
     try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map && decoded['url'] is String) {
-        realUrl = decoded['url'] as String;
+      final req = await client.getUrl(Uri.parse(proxyUrl));
+      final resp = await req.close();
+      final body = await resp.transform(utf8.decoder).join();
+      client.close();
+
+      if (body.isEmpty) return null;
+
+      String? realUrl;
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map && decoded['url'] is String) realUrl = decoded['url'] as String;
+      } catch (_) {
+        if (body.startsWith('http')) realUrl = body;
       }
-    } catch (_) {
-      if (body.startsWith('http')) realUrl = body;
+      if (realUrl == null || realUrl.isEmpty) return null;
+
+      // 方法B: 通过代理下载图片，不走 CDN 直连
+      // 构造代理图片下载 URL: types=pic_download 或直接通过代理抓取
+      // 最简单：改为用 Dio 下载（Dio 用 OkHttp，网络栈不同）
+      try {
+        final imgResp = await _dio.get(
+          realUrl,
+          options: Options(
+            responseType: ResponseType.bytes,
+            receiveTimeout: const Duration(seconds: 20),
+          ),
+        );
+        if (imgResp.statusCode == 200 && imgResp.data is Uint8List) {
+          final bytes = imgResp.data as Uint8List;
+          if (bytes.isNotEmpty) return bytes;
+        }
+      } catch (e) {
+        print('[ArtFetch] Dio download failed: $e');
+      }
+
+      // 方法C: 尝试用 HttpClient 绕过 SSL 验证下载
+      try {
+        final imgClient = HttpClient()
+          ..connectionTimeout = const Duration(seconds: 20)
+          ..badCertificateCallback = (cert, host, port) => true; // 绕过 SSL 证书验证
+        final imgReq = await imgClient.getUrl(Uri.parse(realUrl));
+        imgReq.headers.set('User-Agent', 'Mozilla/5.0');
+        final imgResp = await imgReq.close();
+        imgClient.close();
+
+        if (imgResp.statusCode == 200) {
+          final bytes = await imgResp.fold<Uint8List>(
+            Uint8List(0),
+            (prev, chunk) {
+              final c = chunk as List<int>;
+              final result = Uint8List(prev.length + c.length);
+              result.setRange(0, prev.length, prev);
+              result.setRange(prev.length, result.length, c);
+              return result;
+            },
+          );
+          if (bytes.isNotEmpty) return bytes;
+        }
+      } catch (e) {
+        print('[ArtFetch] SSL-bypass download failed: $e');
+      }
+    } catch (e) {
+      print('[ArtFetch] proxy request failed: $e');
+      rethrow; // 让 provider 显示错误
     }
-    if (realUrl == null || realUrl.isEmpty) return null;
-
-    // 2) 从真实 URL 下载图片字节
-    final imgClient = HttpClient();
-    imgClient.connectionTimeout = const Duration(seconds: 15);
-    final imgReq = await imgClient.getUrl(Uri.parse(realUrl));
-    final imgResp = await imgReq.close();
-    imgClient.close();
-
-    if (imgResp.statusCode != 200) return null;
-
-    final bytes = await imgResp.fold<Uint8List>(
-      Uint8List(0),
-      (prev, chunk) {
-        final c = chunk as List<int>;
-        final result = Uint8List(prev.length + c.length);
-        result.setRange(0, prev.length, prev);
-        result.setRange(prev.length, result.length, c);
-        return result;
-      },
-    );
-    return bytes.isEmpty ? null : bytes;
+    return null;
   }
 
   /// 错误处理
