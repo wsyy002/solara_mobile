@@ -234,7 +234,18 @@ class _NowPlayingPage extends StatelessWidget {
                           ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                // [Debug] 显示封面 URL
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '封面URL: ${artUrl ?? "(null)"}',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 // 歌曲信息
                 Text(
