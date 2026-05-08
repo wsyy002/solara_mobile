@@ -140,20 +140,20 @@ class ApiService {
   Future<String> fetchAlbumArtUrl(Song song, {int size = 300}) async {
     final key = '${song.id}_${song.source}_$size';
     if (_artCache.containsKey(key)) {
-      debugPrint('[ArtCache] hit: $key => ${_artCache[key]}');
+      print('[ArtCache] hit: $key => ${_artCache[key]}');
       return _artCache[key]!;
     }
 
     final apiUrl = getAlbumArtUrl(song, size: size);
-    debugPrint('[ArtFetch] url: $apiUrl');
+    print('[ArtFetch] url: $apiUrl');
 
     try {
       final response = await _dio.get(apiUrl);
       final data = response.data;
-      debugPrint('[ArtFetch] response status: ${response.statusCode}, type: ${data.runtimeType}');
+      print('[ArtFetch] response status: ${response.statusCode}, type: ${data.runtimeType}');
 
       if (data is String) {
-        debugPrint('[ArtFetch] string response (len=${data.length}): ${data.length > 80 ? data.substring(0, 80) : data}');
+        print('[ArtFetch] string response (len=${data.length}): ${data.length > 80 ? data.substring(0, 80) : data}');
         if (data.isNotEmpty && data.startsWith('http')) {
           _artCache[key] = data;
           return data;
@@ -170,16 +170,16 @@ class ApiService {
       }
 
       if (data is Map) {
-        debugPrint('[ArtFetch] map keys: ${data.keys}');
+        print('[ArtFetch] map keys: ${data.keys}');
         final url = _extractUrlFromMap(data, apiUrl);
         _artCache[key] = url;
         return url;
       }
     } catch (e) {
-      debugPrint('[ArtFetch] request failed: $e');
+      print('[ArtFetch] request failed: $e');
     }
 
-    debugPrint('[ArtFetch] all parsing failed, fallback to proxy URL');
+    print('[ArtFetch] all parsing failed, fallback to proxy URL');
     _artCache[key] = apiUrl;
     return apiUrl;
   }
@@ -188,24 +188,24 @@ class ApiService {
   String _extractUrlFromMap(Map data, String fallbackUrl) {
     // { "url": "..." }
     if (data['url'] is String && (data['url'] as String).isNotEmpty) {
-      debugPrint('[ArtFetch] found url via data[\'url\']');
+      print('[ArtFetch] found url via data[\'url\']');
       return data['url'] as String;
     }
     // { "data": "http://..." }
     if (data['data'] is String && (data['data'] as String).startsWith('http')) {
-      debugPrint('[ArtFetch] found url via data[\'data\'] (string)');
+      print('[ArtFetch] found url via data[\'data\'] (string)');
       return data['data'] as String;
     }
     // { "data": { "url": "..." } }
     if (data['data'] is Map) {
       final inner = data['data'] as Map;
       if (inner['url'] is String && (inner['url'] as String).isNotEmpty) {
-        debugPrint('[ArtFetch] found url via data[\'data\'][\'url\']');
+        print('[ArtFetch] found url via data[\'data\'][\'url\']');
         return inner['url'] as String;
       }
-      debugPrint('[ArtFetch] inner map keys: ${inner.keys}');
+      print('[ArtFetch] inner map keys: ${inner.keys}');
     }
-    debugPrint('[ArtFetch] could not extract url from map, keys: ${data.keys}');
+    print('[ArtFetch] could not extract url from map, keys: ${data.keys}');
     return fallbackUrl;
   }
 
