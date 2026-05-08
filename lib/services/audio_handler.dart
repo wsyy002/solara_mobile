@@ -1,12 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../config/api_config.dart';
 import '../models/song.dart';
+import '../services/api_service.dart';
 
 /// AudioService 后台音频处理器
 ///
@@ -17,7 +15,6 @@ import '../models/song.dart';
 class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   AudioPlayer? _player;
   bool _playerReady = false;
-  final HttpClient _httpClient = HttpClient();
 
   List<Song> _songs = [];
   int _currentQuality = ApiConfig.defaultQuality;
@@ -125,7 +122,6 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> stop() async {
     await _player?.stop();
     await _player?.dispose();
-    _httpClient.close(force: true);
   }
 
   @override
@@ -193,38 +189,8 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 通过 Solara 后端获取音频播放地址
   Future<String?> _fetchAudioUrl(Song song) async {
-    final sig = DateTime.now().millisecondsSinceEpoch.toString();
-    final url =
-        '${ApiConfig.baseUrl}${ApiConfig.proxyPath}'
-        '?types=url'
-        '&id=${song.urlId ?? song.id}'
-        '&source=${song.source}'
-        '&br=$_currentQuality'
-        '&s=$sig';
-
     try {
-      final uri = Uri.parse(url);
-      final request = await _httpClient.getUrl(uri);
-      request.headers.set('Accept', 'application/json');
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-
-      final trimmed = body.trim();
-      // 可能是直接返回 URL 字符串
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        return trimmed;
-      }
-      // JSON 中提取
-      try {
-        final json = jsonDecode(trimmed);
-        if (json is Map) {
-          if (json['url'] is String) return json['url'] as String;
-          if (json['data'] is Map && json['data']['url'] is String) {
-            return json['data']['url'] as String;
-          }
-        }
-      } catch (_) {}
-      return null;
+      return await ApiService().getSongUrl(song: song, quality: _currentQuality);
     } catch (_) {
       return null;
     }
