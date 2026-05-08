@@ -136,77 +136,15 @@ class ApiService {
     return ApiConfig.proxyUrl(params);
   }
 
-  /// 获取真实的专辑封面图片地址（解析 JSON 后取真实 URL）
+  /// 获取专辑封面图片地址
+  /// 返回代理 URL，让 Image.network 直接通过代理加载图片
   Future<String> fetchAlbumArtUrl(Song song, {int size = 300}) async {
     final key = '${song.id}_${song.source}_$size';
-    if (_artCache.containsKey(key)) {
-      print('[ArtCache] hit: $key => ${_artCache[key]}');
-      return _artCache[key]!;
-    }
+    if (_artCache.containsKey(key)) return _artCache[key]!;
 
-    final apiUrl = getAlbumArtUrl(song, size: size);
-    print('[ArtFetch] url: $apiUrl');
-
-    try {
-      final response = await _dio.get(apiUrl);
-      final data = response.data;
-      print('[ArtFetch] response status: ${response.statusCode}, type: ${data.runtimeType}');
-
-      if (data is String) {
-        print('[ArtFetch] string response (len=${data.length}): ${data.length > 80 ? data.substring(0, 80) : data}');
-        if (data.isNotEmpty && data.startsWith('http')) {
-          _artCache[key] = data;
-          return data;
-        }
-        // 也可能是 JSON 字符串，尝试解析
-        try {
-          final decoded = jsonDecode(data);
-          if (decoded is Map) {
-            final url = _extractUrlFromMap(decoded, apiUrl);
-            _artCache[key] = url;
-            return url;
-          }
-        } catch (_) {}
-      }
-
-      if (data is Map) {
-        print('[ArtFetch] map keys: ${data.keys}');
-        final url = _extractUrlFromMap(data, apiUrl);
-        _artCache[key] = url;
-        return url;
-      }
-    } catch (e) {
-      print('[ArtFetch] request failed: $e');
-    }
-
-    print('[ArtFetch] all parsing failed, fallback to proxy URL');
-    _artCache[key] = apiUrl;
-    return apiUrl;
-  }
-
-  /// 从 Map 中提取图片 URL，尝试多种路径
-  String _extractUrlFromMap(Map data, String fallbackUrl) {
-    // { "url": "..." }
-    if (data['url'] is String && (data['url'] as String).isNotEmpty) {
-      print('[ArtFetch] found url via data[\'url\']');
-      return data['url'] as String;
-    }
-    // { "data": "http://..." }
-    if (data['data'] is String && (data['data'] as String).startsWith('http')) {
-      print('[ArtFetch] found url via data[\'data\'] (string)');
-      return data['data'] as String;
-    }
-    // { "data": { "url": "..." } }
-    if (data['data'] is Map) {
-      final inner = data['data'] as Map;
-      if (inner['url'] is String && (inner['url'] as String).isNotEmpty) {
-        print('[ArtFetch] found url via data[\'data\'][\'url\']');
-        return inner['url'] as String;
-      }
-      print('[ArtFetch] inner map keys: ${inner.keys}');
-    }
-    print('[ArtFetch] could not extract url from map, keys: ${data.keys}');
-    return fallbackUrl;
+    final url = getAlbumArtUrl(song, size: size);
+    _artCache[key] = url;
+    return url;
   }
 
   /// 错误处理
