@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/song.dart';
@@ -25,7 +27,7 @@ class SongTile extends StatefulWidget {
 }
 
 class _SongTileState extends State<SongTile> {
-  String? _artUrl;
+  Uint8List? _artBytes;
   bool _loadingArt = true;
 
   @override
@@ -35,10 +37,11 @@ class _SongTileState extends State<SongTile> {
   }
 
   Future<void> _loadArt() async {
-    final url = await ApiService().fetchAlbumArtUrl(widget.song);
+    // 使用 fetchAlbumArtBytes 下载图片（与播放器封面一致）
+    final bytes = await ApiService().fetchAlbumArtBytes(widget.song);
     if (mounted) {
       setState(() {
-        _artUrl = url.isNotEmpty ? url : null;
+        _artBytes = bytes;
         _loadingArt = false;
       });
     }
@@ -57,9 +60,9 @@ class _SongTileState extends State<SongTile> {
           color: colorScheme.surfaceContainerHighest,
           child: _loadingArt
               ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : (_artUrl != null
-                  ? Image.network(
-                      _artUrl!,
+              : (_artBytes != null
+                  ? Image.memory(
+                      _artBytes!,
                       width: 48,
                       height: 48,
                       fit: BoxFit.cover,
@@ -67,8 +70,6 @@ class _SongTileState extends State<SongTile> {
                         Icons.music_note,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      loadingBuilder: (_, child, progress) =>
-                          progress == null ? child : const Icon(Icons.music_note),
                     )
                   : Icon(
                       Icons.music_note,
