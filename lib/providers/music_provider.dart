@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../config/api_config.dart';
 import '../services/audio_handler.dart';
@@ -15,6 +16,61 @@ import '../services/storage_service.dart';
 class MusicProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
   final StorageService _storage = StorageService();
+  late final AudioPlayer _player;
+
+  StreamSubscription<PlayerState>? _playerStateSub;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration?>? _durationSub;
+
+  MusicProvider() {
+    _player = AudioPlayer();
+    _setupPlayerListeners();
+  }
+
+  /// 清理资源
+  void dispose() {
+    _playerStateSub?.cancel();
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
+  void _setupPlayerListeners() {
+    // 播放状态 & 自动下一首
+    _playerStateSub = _player.playerStateStream.listen((state) {
+      _isPlaying = state.playing;
+
+      // 播放完成自动下一首
+      if (state.processingState == AudioProcessingState.completed) {
+        if (_currentIndex < _playlist.length - 1) {
+          _currentIndex++;
+          _currentSong = _playlist[_currentIndex];
+          _playCurrentSong().catchError((_) {});
+          _fetchLyric();
+          _notifyAudioServicePlay();
+        } else {
+          _currentIndex = -1;
+          _currentSong = null;
+          _isPlaying = false;
+          _position = Duration.zero;
+          _duration = null;
+        }
+      }
+
+      notifyListeners();
+    });
+
+    // 播放进度
+    _positionSub = _player.positionStream.listen((pos) {
+      _position = pos;
+    });
+
+    // 歌曲时长
+    _durationSub = _player.durationStream.listen((dur) {
+      _duration = dur;
+    });
+  }
 
   // ======== 搜索状态 ========
   bool _isSearching = false;
@@ -133,7 +189,8 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
-  // ======== 播放列表 ========
+  // ======== 播放 ========
+
   /// 设置播放列表并开始播放
   void playFromList(List<Song> songs, {int startIndex = 0}) {
     if (songs.isEmpty) return;
@@ -142,11 +199,10 @@ class MusicProvider extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
 
+    _playCurrentSong().catchError((_) {});
+    _notifyAudioServicePlay();
     notifyListeners();
     _fetchLyric();
-
-    // 通知 AudioHandler 播放
-    _notifyAudioServicePlay();
   }
 
   /// 从搜索结果播放：只把点击的这首歌追加到列表末尾
@@ -162,9 +218,32 @@ class MusicProvider extends ChangeNotifier {
     _currentIndex = _playlist.length - 1;
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
+
+    _playCurrentSong().catchError((_) {});
     _notifyAudioServicePlay();
     notifyListeners();
     _fetchLyric();
+  }
+
+  /// 实际播放当前歌曲（通过 AudioPlayer）
+  /// 只负责播放，自动下一首由 playerStateStream 监听器处理
+  Future<void> _playCurrentSong() async {
+    if (_currentSong == null) return;
+    try {
+      final url = await _api.getSongUrl(
+        song: _currentSong!,
+        quality: _quality,
+      );
+      if (url.isEmpty) return;
+      await _player.setAudioSource(
+        AudioSource.uri(Uri.parse(url)),
+        preload: true,
+      );
+      await _player.seek(Duration.zero);
+      await _player.play();
+    } catch (e) {
+      debugPrint('_playCurrentSong failed: $e');
+    }
   }
 
   /// 将单首歌追加到播放列表末尾
@@ -174,7 +253,8 @@ class MusicProvider extends ChangeNotifier {
   }
 
   /// 清空播放列表
-  void clearPlaylist() {
+  void clearPlaylist() async {
+    await _player.stop();
     _playlist = [];
     _currentIndex = -1;
     _currentSong = null;
@@ -203,7 +283,13 @@ class MusicProvider extends ChangeNotifier {
   /// 当前播放完成 → 下一首
   void onPlaybackComplete() {
     if (_currentIndex < _playlist.length - 1) {
-      playFromList(_playlist, startIndex: _currentIndex + 1);
+      _currentIndex++;
+      _currentSong = _playlist[_currentIndex];
+      _isPlaying = true;
+      _playCurrentSong().catchError((_) {});
+      _notifyAudioServicePlay();
+      notifyListeners();
+      _fetchLyric();
     } else {
       _isPlaying = false;
       _position = Duration.zero;
@@ -215,13 +301,22 @@ class MusicProvider extends ChangeNotifier {
   void playPrevious() {
     if (_playlist.isEmpty) return;
     final prev = (_currentIndex - 1).clamp(0, _playlist.length - 1);
-    playFromList(_playlist, startIndex: prev);
+    _currentIndex = prev;
+    _currentSong = _playlist[_currentIndex];
+    _isPlaying = true;
+    _playCurrentSong().catchError((_) {});
+    _notifyAudioServicePlay();
+    notifyListeners();
+    _fetchLyric();
   }
 
   /// 切换播放/暂停
   void togglePlayPause() {
-    _isPlaying = !_isPlaying;
-    notifyListeners();
+    if (_isPlaying) {
+      _player.pause();
+    } else {
+      _player.play();
+    }
   }
 
   void setPosition(Duration pos) {
@@ -233,8 +328,11 @@ class MusicProvider extends ChangeNotifier {
   }
 
   void setPlaying(bool playing) {
-    _isPlaying = playing;
-    notifyListeners();
+    if (playing) {
+      _player.play();
+    } else {
+      _player.pause();
+    }
   }
 
   /// 设置音质
