@@ -222,6 +222,17 @@ class _NowPlayingPage extends StatelessWidget {
                               child: const Icon(Icons.music_note, size: 80),
                             ),
                           )
+                        : provider.albumArtUrl != null && provider.albumArtUrl!.isNotEmpty
+                        ? Image.network(
+                            provider.albumArtUrl!,
+                            width: MediaQuery.of(context).size.width * 0.7,
+                            height: MediaQuery.of(context).size.width * 0.7,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note, size: 80),
+                            ),
+                          )
                         : Container(
                             width: MediaQuery.of(context).size.width * 0.7,
                             height: MediaQuery.of(context).size.width * 0.7,
