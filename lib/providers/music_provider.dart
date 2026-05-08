@@ -305,14 +305,15 @@ class MusicProvider extends ChangeNotifier {
         _albumArtUrl = null;
         _albumArtError = 'ok (${bytes.length} bytes)';
       } else {
+        // 失败了，尝试直接用代理 URL 作为图片源
+        _albumArtUrl = _api.getAlbumArtUrl(_currentSong!);
         _albumArtBytes = null;
-        _albumArtUrl = null;
-        _albumArtError = 'returned null';
+        _albumArtError = 'fallback to proxy url';
       }
     } catch (e) {
       _albumArtBytes = null;
-      _albumArtUrl = null;
-      _albumArtError = 'error: $e';
+      _albumArtUrl = _api.getAlbumArtUrl(_currentSong!);
+      _albumArtError = 'error: $e, fallback';
     }
     notifyListeners();
   }
