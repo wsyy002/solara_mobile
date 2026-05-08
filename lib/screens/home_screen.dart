@@ -236,7 +236,7 @@ class _NowPlayingPage extends StatelessWidget {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Text(
-                      'bytes: ${provider.albumArtBytes?.length ?? 0}  url: ${artUrl ?? "(null)"}',
+                      '${provider.albumArtError}  bytes: ${provider.albumArtBytes?.length ?? 0}  url: ${artUrl ?? "(null)"}',
                       style: const TextStyle(fontSize: 9, color: Colors.grey),
                       maxLines: 1,
                     ),

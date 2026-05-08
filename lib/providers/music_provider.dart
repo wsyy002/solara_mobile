@@ -127,6 +127,7 @@ class MusicProvider extends ChangeNotifier {
   String? _lyricText;
   String? _albumArtUrl;
   Uint8List? _albumArtBytes;
+  String _albumArtError = '';
   RepeatMode _loopMode = RepeatMode.none;
 
   List<Song> get playlist => _playlist;
@@ -139,6 +140,7 @@ class MusicProvider extends ChangeNotifier {
   String? get lyricText => _lyricText;
   String? get albumArtUrl => _albumArtUrl;
   Uint8List? get albumArtBytes => _albumArtBytes;
+  String get albumArtError => _albumArtError;
   RepeatMode get loopMode => _loopMode;
 
   // ======== 收藏 ========
@@ -294,18 +296,23 @@ class MusicProvider extends ChangeNotifier {
   /// 获取当前歌曲专辑封面（通过 Dio 下载图片字节流）
   Future<void> _fetchAlbumArt() async {
     if (_currentSong == null) return;
+    _albumArtError = 'fetching...';
+    notifyListeners();
     try {
       final bytes = await _api.fetchAlbumArtBytes(_currentSong!);
       if (bytes != null) {
         _albumArtBytes = bytes;
         _albumArtUrl = null;
+        _albumArtError = 'ok (${bytes.length} bytes)';
       } else {
         _albumArtBytes = null;
         _albumArtUrl = null;
+        _albumArtError = 'returned null';
       }
-    } catch (_) {
+    } catch (e) {
       _albumArtBytes = null;
       _albumArtUrl = null;
+      _albumArtError = 'error: $e';
     }
     notifyListeners();
   }
