@@ -8,10 +8,11 @@ import '../services/api_service.dart';
 
 /// AudioService 后台音频处理器
 ///
-/// 职责：
-/// - 后台播放（锁屏后继续播放）
-/// - 锁屏控制（播放/暂停/切歌/专辑封面）
-/// - 通知栏控制
+/// 仅负责：
+/// - 通知栏/锁屏控制（播放/暂停/切歌/封面）
+/// - 媒体会话状态同步
+///
+/// 播放逻辑完全由 MusicProvider 管理
 class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   AudioPlayer? _player;
   bool _playerReady = false;
@@ -19,17 +20,31 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   List<Song> _songs = [];
   int _currentQuality = ApiConfig.defaultQuality;
 
+  VoidCallback? _onNextPressed;
+  VoidCallback? _onPrevPressed;
+  VoidCallback? _onStopPressed;
+
+  /// 设置通知栏按钮回调（由 MusicProvider 注入）
+  void setCallbacks({
+    VoidCallback? onNext,
+    VoidCallback? onPrev,
+    VoidCallback? onStop,
+  }) {
+    _onNextPressed = onNext;
+    _onPrevPressed = onPrev;
+    _onStopPressed = onStop;
+  }
+
   /// 由 MusicProvider 注入共享的 AudioPlayer
-  /// 确保通知栏控制和 MusicProvider 操作同一个播放器
   void setPlayer(AudioPlayer player) {
-    if (_playerReady) return; // 已经设置过了
+    if (_playerReady) return;
     _player = player;
     _playerReady = true;
     _setupListeners();
   }
 
   void _setupListeners() {
-    // 位置更新
+    // 位置更新 → 通知栏进度
     _player?.positionStream.listen((pos) {
       playbackState.add(playbackState.value.copyWith(
         updatePosition: pos,
@@ -43,13 +58,8 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
       }
     });
 
-    // 播放状态
+    // 播放状态 → 更新通知栏按钮
     _player?.playerStateStream.listen((state) {
-      // 播放完成自动下一首
-      if (state.processingState == AudioProcessingState.completed) {
-        _next();
-      }
-
       playbackState.add(playbackState.value.copyWith(
         playing: state.playing,
         processingState: _mapProcessing(state.processingState),
@@ -60,29 +70,22 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
         ],
       ));
     });
-
-    // 序列状态更新
-    _player?.sequenceStateStream.listen((seq) {
-      if (seq?.currentSource != null) {
-        final idx = seq!.currentIndex;
-        if (idx != null && idx < _songs.length) {
-          _updateMediaItem(_songs[idx]);
-        }
-      }
-    });
   }
 
   // ===== 外部接口 =====
 
-  /// 加载并播放列表
-  Future<void> loadQueue(List<Song> songs, {int startIndex = 0}) async {
-    if (!_playerReady) {
-      debugPrint('AudioPlayer not available, skipping playback');
-      return;
-    }
+  /// 设置播放列表中的歌曲（供 MusicProvider 调用）
+  void setSongList(List<Song> songs) {
     _songs = List.from(songs);
     queue.add(songs.map(_toMediaItem).toList());
-    await _playAt(startIndex.clamp(0, songs.length - 1));
+  }
+
+  /// 更新当前播放的媒体信息（封面、歌名等）
+  void updateCurrentMedia(Song song, {int index = 0}) {
+    final item = _toMediaItem(song);
+    mediaItem.add(item);
+    // 异步更新真实封面 URL
+    _updateArtUrl(song);
   }
 
   /// 设置音质
@@ -114,91 +117,36 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> seek(Duration position) => _player?.seek(position) ?? Future<void>.value();
 
   @override
-  Future<void> skipToNext() => _next();
+  Future<void> skipToNext() {
+    _onNextPressed?.call();
+    return Future<void>.value();
+  }
 
   @override
-  Future<void> skipToPrevious() => _prev();
+  Future<void> skipToPrevious() {
+    _onPrevPressed?.call();
+    return Future<void>.value();
+  }
 
   @override
   Future<void> stop() async {
-    await _player?.stop();
-    await _player?.dispose();
+    _onStopPressed?.call();
   }
 
   @override
   Future<void> setRepeatMode(AudioServiceRepeatMode mode) async {
-    _player?.setLoopMode(_toLoopMode(mode));
     super.setRepeatMode(mode);
   }
 
   @override
-  Future<void> addQueueItem(MediaItem mediaItem) async {
-    // 暂不支持
-  }
+  Future<void> addQueueItem(MediaItem mediaItem) async {}
 
   @override
-  Future<void> removeQueueItemAt(int index) async {
-    // 暂不支持
-  }
+  Future<void> removeQueueItemAt(int index) async {}
 
   // ===== 内部方法 =====
 
-  /// 播放指定索引（获取音频 URL 并播放）
-  Future<void> _playAt(int index) async {
-    if (index < 0 || index >= _songs.length) return;
-
-    final song = _songs[index];
-    _updateMediaItem(song);
-
-    try {
-      final audioUrl = await _fetchAudioUrl(song);
-      if (audioUrl == null) {
-        await _next();
-        return;
-      }
-
-      await _player?.setAudioSource(
-        AudioSource.uri(Uri.parse(audioUrl)),
-        preload: true,
-      );
-      await _player?.seek(Duration.zero);
-      await _player?.play();
-    } catch (_) {
-      // 播放失败，跳过
-      await _next();
-    }
-  }
-
-  Future<void> _next() async {
-    final next = (_player?.currentIndex ?? 0) + 1;
-    if (next < _songs.length) {
-      await _playAt(next);
-    } else {
-      await _player?.pause();
-      await _player?.seek(Duration.zero);
-    }
-  }
-
-  Future<void> _prev() async {
-    final prev = (_player?.currentIndex ?? 1) - 1;
-    if (prev >= 0) {
-      await _playAt(prev);
-    } else {
-      await _player?.seek(Duration.zero);
-    }
-  }
-
-  /// 通过 Solara 后端获取音频播放地址
-  Future<String?> _fetchAudioUrl(Song song) async {
-    try {
-      return await ApiService().getSongUrl(song: song, quality: _currentQuality);
-    } catch (_) {
-      return null;
-    }
-  }
-
   void _updateMediaItem(Song song) {
-    // 异步获取真实封面 URL 并更新
     _updateArtUrl(song);
     final item = _toMediaItem(song);
     mediaItem.add(item);
@@ -214,7 +162,6 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   MediaItem _toMediaItem(Song song) {
-    // 先用代理 URL 占位，异步更新为真实 CDN URL
     final sig = DateTime.now().millisecondsSinceEpoch.toString();
     final picUrl =
         '${ApiConfig.baseUrl}${ApiConfig.proxyPath}'
@@ -239,28 +186,11 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
 
   AudioProcessingState _mapProcessing(ProcessingState s) {
     switch (s) {
-      case ProcessingState.idle:
-        return AudioProcessingState.idle;
-      case ProcessingState.loading:
-        return AudioProcessingState.loading;
-      case ProcessingState.buffering:
-        return AudioProcessingState.buffering;
-      case ProcessingState.ready:
-        return AudioProcessingState.ready;
-      case ProcessingState.completed:
-        return AudioProcessingState.completed;
-    }
-  }
-
-  LoopMode _toLoopMode(AudioServiceRepeatMode m) {
-    switch (m) {
-      case AudioServiceRepeatMode.none:
-        return LoopMode.off;
-      case AudioServiceRepeatMode.one:
-        return LoopMode.one;
-      case AudioServiceRepeatMode.all:
-      case AudioServiceRepeatMode.group:
-        return LoopMode.all;
+      case ProcessingState.idle: return AudioProcessingState.idle;
+      case ProcessingState.loading: return AudioProcessingState.loading;
+      case ProcessingState.buffering: return AudioProcessingState.buffering;
+      case ProcessingState.ready: return AudioProcessingState.ready;
+      case ProcessingState.completed: return AudioProcessingState.completed;
     }
   }
 }

@@ -486,9 +486,18 @@ class MusicProvider extends ChangeNotifier {
   /// 设置 AudioHandler（由 main.dart 注入）
   void setAudioHandler(BaseAudioHandler handler) {
     _audioHandler = handler;
-    // 将本地的 AudioPlayer 注入到 AudioHandler，确保通知栏使用同一个播放器
     if (handler is SolaraAudioHandler) {
+      // 注入同一播放器 + 通知栏按钮回调
       handler.setPlayer(_player);
+      handler.setCallbacks(
+        onNext: onPlaybackComplete,
+        onPrev: playPrevious,
+        onStop: () {
+          _player.stop();
+          _isPlaying = false;
+          notifyListeners();
+        },
+      );
     }
   }
 
@@ -498,7 +507,11 @@ class MusicProvider extends ChangeNotifier {
   // ======== 通知 AudioService ========
   void _notifyAudioServicePlay() {
     if (_audioHandler is SolaraAudioHandler) {
-      (_audioHandler as SolaraAudioHandler).loadQueue(_playlist, startIndex: _currentIndex);
+      final handler = _audioHandler as SolaraAudioHandler;
+      handler.setSongList(_playlist);
+      if (_currentSong != null) {
+        handler.updateCurrentMedia(_currentSong!, index: _currentIndex);
+      }
     }
   }
 }
