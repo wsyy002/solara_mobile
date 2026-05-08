@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -151,30 +152,70 @@ class ApiService {
   /// 通过 Dio 下载专辑封面图片字节流
   /// 先通过代理获取真实 URL，再用 Dio 下载图片，绕过 Image.network 的限制
   Future<Uint8List?> fetchAlbumArtBytes(Song song, {int size = 300}) async {
+    final proxyUrl = getAlbumArtUrl(song, size: size);
+    print('[AlbumArt] step1: $proxyUrl');
+
+    // 1) 直接用 dart:io HttpClient 请求代理 URL
     try {
-      // 1) 从代理获取真实图片 URL
-      final proxyUrl = getAlbumArtUrl(song, size: size);
-      final proxyResp = await _dio.get(proxyUrl);
-      final data = proxyResp.data;
+      final uri = Uri.parse(proxyUrl);
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+      final request = await client.getUrl(uri);
+      request.headers.set('Accept', 'application/json');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
 
+      print('[AlbumArt] step2: status=${response.statusCode} body.len=${body.length}');
+
+      // 解析 JSON
       String? realUrl;
-      if (data is Map) {
-        if (data['url'] is String) realUrl = data['url'] as String;
-      } else if (data is String && data.startsWith('http')) {
-        realUrl = data;
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          if (decoded['url'] is String) {
+            realUrl = decoded['url'] as String;
+          }
+        }
+      } catch (_) {
+        // 可能是直接返回 URL 字符串
+        if (body.startsWith('http')) {
+          realUrl = body;
+        }
       }
-      if (realUrl == null) return null;
 
-      // 2) 下载实际图片
-      final imgResp = await _dio.get(
-        realUrl,
-        options: Options(responseType: ResponseType.bytes),
-      );
-      if (imgResp.statusCode == 200 && imgResp.data is Uint8List) {
-        return imgResp.data as Uint8List;
+      if (realUrl == null) {
+        print('[AlbumArt] step3: no realUrl found, body=$body');
+        return null;
       }
+
+      print('[AlbumArt] step4: realUrl=$realUrl');
+
+      // 2) 用 dart:io HttpClient 下载图片
+      final imgClient = HttpClient();
+      imgClient.connectionTimeout = const Duration(seconds: 15);
+      final imgRequest = await imgClient.getUrl(Uri.parse(realUrl));
+      final imgResponse = await imgRequest.close();
+
+      if (imgResponse.statusCode == 200) {
+        final bytes = await imgResponse.fold<Uint8List>(
+          Uint8List(0),
+          (prev, chunk) {
+            final c = chunk as List<int>;
+            final result = Uint8List(prev.length + c.length);
+            result.setRange(0, prev.length, prev);
+            result.setRange(prev.length, result.length, c);
+            return result;
+          },
+        );
+        imgClient.close();
+        print('[AlbumArt] step5: downloaded ${bytes.length} bytes');
+        return bytes;
+      }
+      imgClient.close();
+      print('[AlbumArt] step3b: img status=${imgResponse.statusCode}');
     } catch (e) {
-      print('[AlbumArtBytes] fetch failed: $e');
+      print('[AlbumArt] error: $e');
     }
     return null;
   }
