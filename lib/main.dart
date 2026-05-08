@@ -35,7 +35,7 @@ void main() async {
       builder: () => SolaraAudioHandler(),
       config: AudioServiceConfig(
         androidNotificationChannelId: 'com.solara.music.channel',
-        androidNotificationChannelName: 'Solara 音乐',
+        androidNotificationChannelName: 'PureTune',
         androidNotificationOngoing: true,
         androidStopForegroundOnPause: false,
         androidNotificationIcon: 'mipmap/ic_launcher',
@@ -73,7 +73,7 @@ class SolaraApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Solara',
+      title: 'PureTune',
       debugShowCheckedModeBanner: false,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
@@ -82,16 +82,19 @@ class SolaraApp extends StatelessWidget {
     );
   }
 
+  // PureTune 主题色 — 紫罗兰渐变
+  static const Color _seedColor = Color(0xFF7C3AED); // vibrant purple
+
   ThemeData _buildLightTheme() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF6366F1), // indigo
+      seedColor: _seedColor,
       brightness: Brightness.light,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       appBarTheme: AppBarTheme(
-        centerTitle: true,
+        centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 1,
         foregroundColor: colorScheme.onSurface,
@@ -102,20 +105,36 @@ class SolaraApp extends StatelessWidget {
         elevation: 0,
         selectedItemColor: colorScheme.primary,
         unselectedItemColor: colorScheme.onSurfaceVariant,
+      ),
+      cardTheme: CardTheme(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   ThemeData _buildDarkTheme() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF818CF8),
+      seedColor: _seedColor,
       brightness: Brightness.dark,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       appBarTheme: AppBarTheme(
-        centerTitle: true,
+        centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 1,
         foregroundColor: colorScheme.onSurface,
@@ -126,6 +145,22 @@ class SolaraApp extends StatelessWidget {
         elevation: 0,
         selectedItemColor: colorScheme.primary,
         unselectedItemColor: colorScheme.onSurfaceVariant,
+      ),
+      cardTheme: CardTheme(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

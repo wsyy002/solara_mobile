@@ -95,8 +95,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
             const Text(
-              'Solara',
+              'PureTune',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
             ),
             const SizedBox(width: 8),
@@ -239,18 +249,6 @@ class _NowPlayingPage extends StatelessWidget {
                             color: Theme.of(context).colorScheme.surfaceContainerHighest,
                             child: const Icon(Icons.music_note, size: 80),
                           ),
-                  ),
-                ),
-                // [Debug] 显示封面 URL + bytes 大小
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Text(
-                      '${provider.albumArtError}  bytes: ${provider.albumArtBytes?.length ?? 0}  url: ${artUrl ?? "(null)"}',
-                      style: const TextStyle(fontSize: 9, color: Colors.grey),
-                      maxLines: 1,
-                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
