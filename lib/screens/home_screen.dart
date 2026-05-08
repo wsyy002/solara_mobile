@@ -211,17 +211,13 @@ class _NowPlayingPage extends StatelessWidget {
                   tag: 'album-art-${song.id}',
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: artUrl != null && artUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: artUrl!,
+                    child: provider.albumArtBytes != null
+                        ? Image.memory(
+                            provider.albumArtBytes!,
                             width: MediaQuery.of(context).size.width * 0.7,
                             height: MediaQuery.of(context).size.width * 0.7,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              child: const Icon(Icons.music_note, size: 80),
-                            ),
-                            errorWidget: (_, __, ___) => Container(
+                            errorBuilder: (_, __, ___) => Container(
                               color: Theme.of(context).colorScheme.surfaceContainerHighest,
                               child: const Icon(Icons.music_note, size: 80),
                             ),
@@ -232,6 +228,27 @@ class _NowPlayingPage extends StatelessWidget {
                             color: Theme.of(context).colorScheme.surfaceContainerHighest,
                             child: const Icon(Icons.music_note, size: 80),
                           ),
+                  ),
+                ),
+                // [Debug] 显示封面 URL + bytes 大小
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Text(
+                      'bytes: ${provider.albumArtBytes?.length ?? 0}  url: ${artUrl ?? "(null)"}',
+                      style: const TextStyle(fontSize: 9, color: Colors.grey),
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
                   ),
                 ),
                 // [Debug] 显示封面 URL

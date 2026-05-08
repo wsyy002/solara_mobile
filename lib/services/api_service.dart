@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -145,6 +146,37 @@ class ApiService {
     final url = getAlbumArtUrl(song, size: size);
     _artCache[key] = url;
     return url;
+  }
+
+  /// 通过 Dio 下载专辑封面图片字节流
+  /// 先通过代理获取真实 URL，再用 Dio 下载图片，绕过 Image.network 的限制
+  Future<Uint8List?> fetchAlbumArtBytes(Song song, {int size = 300}) async {
+    try {
+      // 1) 从代理获取真实图片 URL
+      final proxyUrl = getAlbumArtUrl(song, size: size);
+      final proxyResp = await _dio.get(proxyUrl);
+      final data = proxyResp.data;
+
+      String? realUrl;
+      if (data is Map) {
+        if (data['url'] is String) realUrl = data['url'] as String;
+      } else if (data is String && data.startsWith('http')) {
+        realUrl = data;
+      }
+      if (realUrl == null) return null;
+
+      // 2) 下载实际图片
+      final imgResp = await _dio.get(
+        realUrl,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (imgResp.statusCode == 200 && imgResp.data is Uint8List) {
+        return imgResp.data as Uint8List;
+      }
+    } catch (e) {
+      print('[AlbumArtBytes] fetch failed: $e');
+    }
+    return null;
   }
 
   /// 错误处理

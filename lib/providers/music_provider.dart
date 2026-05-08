@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -125,6 +126,7 @@ class MusicProvider extends ChangeNotifier {
   int _quality = ApiConfig.defaultQuality;
   String? _lyricText;
   String? _albumArtUrl;
+  Uint8List? _albumArtBytes;
   RepeatMode _loopMode = RepeatMode.none;
 
   List<Song> get playlist => _playlist;
@@ -136,6 +138,7 @@ class MusicProvider extends ChangeNotifier {
   int get quality => _quality;
   String? get lyricText => _lyricText;
   String? get albumArtUrl => _albumArtUrl;
+  Uint8List? get albumArtBytes => _albumArtBytes;
   RepeatMode get loopMode => _loopMode;
 
   // ======== 收藏 ========
@@ -288,12 +291,20 @@ class MusicProvider extends ChangeNotifier {
     }
   }
 
-  /// 获取当前歌曲专辑封面 URL
+  /// 获取当前歌曲专辑封面（通过 Dio 下载图片字节流）
   Future<void> _fetchAlbumArt() async {
     if (_currentSong == null) return;
     try {
-      _albumArtUrl = await _api.fetchAlbumArtUrl(_currentSong!);
+      final bytes = await _api.fetchAlbumArtBytes(_currentSong!);
+      if (bytes != null) {
+        _albumArtBytes = bytes;
+        _albumArtUrl = null;
+      } else {
+        _albumArtBytes = null;
+        _albumArtUrl = null;
+      }
     } catch (_) {
+      _albumArtBytes = null;
       _albumArtUrl = null;
     }
     notifyListeners();
