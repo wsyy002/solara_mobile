@@ -322,8 +322,8 @@ class _NowPlayingPage extends StatelessWidget {
                 ),
               ],
             ),
-          );
-        }
+          ),
+        );
       },
     );
   }
