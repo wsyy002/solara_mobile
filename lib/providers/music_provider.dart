@@ -486,6 +486,10 @@ class MusicProvider extends ChangeNotifier {
   /// 设置 AudioHandler（由 main.dart 注入）
   void setAudioHandler(BaseAudioHandler handler) {
     _audioHandler = handler;
+    // 将本地的 AudioPlayer 注入到 AudioHandler，确保通知栏使用同一个播放器
+    if (handler is SolaraAudioHandler) {
+      handler.setPlayer(_player);
+    }
   }
 
   /// 获取 AudioHandler

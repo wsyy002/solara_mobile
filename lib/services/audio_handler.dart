@@ -19,12 +19,13 @@ class SolaraAudioHandler extends BaseAudioHandler with SeekHandler {
   List<Song> _songs = [];
   int _currentQuality = ApiConfig.defaultQuality;
 
-  SolaraAudioHandler() {
-    try {
-      _player = AudioPlayer();
-      _setupListeners();
-      _playerReady = true;
-    } catch (_) {}
+  /// 由 MusicProvider 注入共享的 AudioPlayer
+  /// 确保通知栏控制和 MusicProvider 操作同一个播放器
+  void setPlayer(AudioPlayer player) {
+    if (_playerReady) return; // 已经设置过了
+    _player = player;
+    _playerReady = true;
+    _setupListeners();
   }
 
   void _setupListeners() {
