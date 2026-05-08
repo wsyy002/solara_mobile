@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -154,6 +155,7 @@ class MusicProvider extends ChangeNotifier {
   Future<void> init() async {
     await _storage.init();
     await loadFavorites();
+    await _loadPlaylist();
 
     // 恢复上次播放状态
     final prefs = await SharedPreferences.getInstance();
@@ -234,6 +236,7 @@ class MusicProvider extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
 
+    _savePlaylist();
     _playCurrentSong().catchError((_) {});
     _fetchAlbumArt();
     _notifyAudioServicePlay();
@@ -255,6 +258,7 @@ class MusicProvider extends ChangeNotifier {
     _currentSong = _playlist[_currentIndex];
     _isPlaying = true;
 
+    _savePlaylist();
     _playCurrentSong().catchError((_) {});
     _fetchAlbumArt();
     _notifyAudioServicePlay();
@@ -353,6 +357,7 @@ class MusicProvider extends ChangeNotifier {
   /// 将单首歌追加到播放列表末尾
   void addToPlaylist(List<Song> songs) {
     _playlist.addAll(songs);
+    _savePlaylist();
     notifyListeners();
   }
 
@@ -381,6 +386,7 @@ class MusicProvider extends ChangeNotifier {
       _currentSong = null;
       _isPlaying = false;
     }
+    _savePlaylist();
     notifyListeners();
   }
 
@@ -447,6 +453,28 @@ class MusicProvider extends ChangeNotifier {
   void setQuality(int quality) {
     _quality = quality;
     notifyListeners();
+  }
+
+  // ======== 播放列表持久化 ========
+
+  /// 保存播放列表到 SharedPreferences
+  Future<void> _savePlaylist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(_playlist.map((s) => s.toJson()).toList());
+    await prefs.setString('playlist', json);
+  }
+
+  /// 从 SharedPreferences 恢复播放列表
+  Future<void> _loadPlaylist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString('playlist');
+    if (json == null || json.isEmpty) return;
+    try {
+      final list = jsonDecode(json) as List;
+      _playlist = list.map((e) => Song.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      _playlist = [];
+    }
   }
 
   // ======== 收藏 ========
