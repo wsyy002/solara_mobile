@@ -39,7 +39,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('输入 Solara 服务的完整地址（含端口）',
+          const Text('输入 PureTune 后端地址（含端口）',
               style: TextStyle(fontSize: 13, color: Colors.grey)),
           const SizedBox(height: 12),
           TextField(
